@@ -2,6 +2,13 @@
 import Foundation
 import Combine
 
+/// Per-episode viewing state, kept separately from the per-show Continue
+/// Watching record so finished episodes stay marked after moving on.
+struct EpisodeProgress: Codable, Equatable {
+    var fraction: Double
+    var completed: Bool
+    var updatedAt: Date
+}
 struct WatchRecord: Codable, Identifiable {
     let id: String
     var episode: CatalogueEpisode
@@ -141,11 +148,18 @@ enum EpisodeSequence {
 
 @MainActor final class WatchHistory: ObservableObject {
     @Published private(set) var records: [WatchRecord] = []
+    @Published private(set) var episodeProgress: [String: EpisodeProgress] = [:]
     @Published private(set) var warning: String?
     private let defaults: UserDefaults
     private static let key = "continueWatching-v1"
+    private static let episodeKey = "episodeProgress-v1"
+    private static let episodeLimit = 600
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        if let data = defaults.data(forKey: Self.episodeKey),
+           let stored = try? JSONDecoder().decode([String: EpisodeProgress].self, from: data) {
+            episodeProgress = stored.filter { $0.value.fraction.isFinite && $0.value.fraction >= 0 }
+        }
         if let data = defaults.data(forKey: Self.key) {
             do {
                 records = try JSONDecoder().decode([WatchRecord].self, from: data)
@@ -162,10 +176,27 @@ enum EpisodeSequence {
         guard let record = records.first(where: { $0.episode.id == episodeID }), !record.completed else { return 0 }
         return record.position
     }
+    func progress(for episodeID: String) -> EpisodeProgress? { episodeProgress[episodeID] }
+    func isWatched(_ episodeID: String) -> Bool { episodeProgress[episodeID]?.completed == true }
+    /// Records an episode's own progress. Completion is sticky: a later
+    /// partial replay does not un-mark a finished episode.
+    private func recordEpisode(_ episodeID: String, position: Double, duration: Double, completed: Bool, now: Date) {
+        let fraction = min(1, max(0, position / duration))
+        let old = episodeProgress[episodeID]
+        let keepCompleted = completed || old?.completed == true
+        if let old, old.completed == keepCompleted, abs(old.fraction - fraction) < 0.01 { return }
+        episodeProgress[episodeID] = EpisodeProgress(fraction: keepCompleted ? 1 : fraction, completed: keepCompleted, updatedAt: now)
+        if episodeProgress.count > Self.episodeLimit {
+            let stale = episodeProgress.sorted { $0.value.updatedAt < $1.value.updatedAt }.prefix(episodeProgress.count - Self.episodeLimit)
+            for (key, _) in stale { episodeProgress.removeValue(forKey: key) }
+        }
+        if let data = try? JSONEncoder().encode(episodeProgress) { defaults.set(data, forKey: Self.episodeKey) }
+    }
     func update(episode: CatalogueEpisode, show: CatalogueShow?, next: CatalogueEpisode?, position: Double, duration: Double, ended: Bool = false, now: Date = Date()) {
         guard position.isFinite, duration.isFinite, duration > 0, position >= 0, position >= 5 || ended else { return }
         let id = show?.id ?? episode.programme.showID ?? episode.id
         let completed = Self.isComplete(position: position, duration: duration, ended: ended)
+        recordEpisode(episode.id, position: position, duration: duration, completed: completed, now: now)
         if let old = records.first(where: { $0.id == id }), old.episode.id == episode.id,
            abs(old.position - position) < 0.5, old.completed == completed { return }
         var compact = show
