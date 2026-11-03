@@ -27,13 +27,41 @@ import SwiftUI
 }
 struct ProgrammeCard: View {
     let programme: Programme
+    /// Local viewing state for this episode; nil when never played.
+    var progress: EpisodeProgress? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ProgrammeThumbnail(url: programme.image, uhd: programme.uhdListed == true, hdr: programme.hdrListed == true, provider: programme.provider)
+                .overlay(alignment: .topLeading) { if progress?.completed == true { WatchedBadge().padding(10) } }
+                .overlay(alignment: .bottom) {
+                    if let progress, !progress.completed, progress.fraction > 0.01 { EpisodeProgressBar(fraction: progress.fraction) }
+                }
+                .opacity(progress?.completed == true ? 0.72 : 1)
+                .accessibilityLabel(progress?.completed == true ? "Watched" : progress.map { "\(Int($0.fraction * 100)) percent watched" } ?? "")
             Text(programme.episodeSubtitle ?? programme.title).font(.headline).lineLimit(2)
                 .frame(maxWidth: .infinity, minHeight: 60, maxHeight: 60, alignment: .topLeading)
             HStack { Spacer(); ProviderBadge(provider: programme.provider, subdued: true) }.frame(minHeight: 40)
         }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+/// Corner tick for finished episodes, styled like the 4K badge opposite it.
+struct WatchedBadge: View {
+    var body: some View {
+        Label("Watched", systemImage: "checkmark").labelStyle(.iconOnly)
+            .font(.system(size: 20, weight: .bold)).padding(.horizontal, 10).padding(.vertical, 6)
+            .background(.black.opacity(0.85)).foregroundStyle(.white).cornerRadius(6)
+    }
+}
+/// Thin bar along the bottom of partly watched artwork, iPlayer style.
+struct EpisodeProgressBar: View {
+    let fraction: Double
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Rectangle().fill(.black.opacity(0.55))
+                Rectangle().fill(.white).frame(width: geometry.size.width * fraction)
+            }
+        }.frame(height: 7).clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 struct DetailView: View {

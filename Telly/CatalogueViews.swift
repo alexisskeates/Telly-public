@@ -414,6 +414,7 @@ private struct ProgrammeDetailsView: View {
     var preferUHDSeries = false
     @StateObject private var state = ShowState()
     @FocusState private var focusedEpisode: String?
+    @EnvironmentObject private var history: WatchHistory
     var current: CatalogueShow { state.show ?? show }
     var orderedSeries: [CatalogueSeries] { EpisodeSequence.orderedSeries(current.series) }
     var selectedEpisodes: [CatalogueEpisode] { state.displayedEpisodes }
@@ -451,7 +452,7 @@ private struct ProgrammeDetailsView: View {
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 330), spacing: 30)], spacing: 30) {
                     ForEach(visibleEpisodes) { episode in
-                        Button { state.selection = episode.programme } label: { ProgrammeCard(programme: episode.programme) }.buttonStyle(ProgrammeCardStyle()).focused($focusedEpisode, equals: episode.id)
+                        Button { state.selection = episode.programme } label: { ProgrammeCard(programme: episode.programme, progress: history.progress(for: episode.id)) }.buttonStyle(ProgrammeCardStyle()).focused($focusedEpisode, equals: episode.id)
                             .accessibilityIdentifier("episode-" + episode.id)
                     }
                 }
