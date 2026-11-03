@@ -190,6 +190,16 @@ enum EpisodeSequence {
             let stale = episodeProgress.sorted { $0.value.updatedAt < $1.value.updatedAt }.prefix(episodeProgress.count - Self.episodeLimit)
             for (key, _) in stale { episodeProgress.removeValue(forKey: key) }
         }
+        persistEpisodes()
+    }
+    /// Manual override from the episode page. Marking stores a finished
+    /// record; unmarking forgets the episode so it shows as unplayed.
+    func setWatched(_ episodeID: String, _ watched: Bool, now: Date = Date()) {
+        if watched { episodeProgress[episodeID] = EpisodeProgress(fraction: 1, completed: true, updatedAt: now) }
+        else { episodeProgress.removeValue(forKey: episodeID) }
+        persistEpisodes()
+    }
+    private func persistEpisodes() {
         if let data = try? JSONEncoder().encode(episodeProgress) { defaults.set(data, forKey: Self.episodeKey) }
     }
     func update(episode: CatalogueEpisode, show: CatalogueShow?, next: CatalogueEpisode?, position: Double, duration: Double, ended: Bool = false, now: Date = Date()) {
