@@ -44,12 +44,15 @@ struct ProgrammeCard: View {
         }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-/// Corner tick for finished episodes, styled like the 4K badge opposite it.
+/// Solid green pill for finished episodes; readable at sofa distance.
 struct WatchedBadge: View {
     var body: some View {
-        Label("Watched", systemImage: "checkmark").labelStyle(.iconOnly)
-            .font(.system(size: 20, weight: .bold)).padding(.horizontal, 10).padding(.vertical, 6)
-            .background(.black.opacity(0.85)).foregroundStyle(.white).cornerRadius(6)
+        HStack(spacing: 7) {
+            Image(systemName: "checkmark").font(.system(size: 19, weight: .heavy))
+            Text("WATCHED").font(.system(size: 18, weight: .bold))
+        }.padding(.horizontal, 13).padding(.vertical, 8)
+            .background(Color(red: 23/255, green: 185/255, blue: 90/255)).foregroundStyle(.white).cornerRadius(8)
+            .shadow(color: .black.opacity(0.55), radius: 5, y: 2)
     }
 }
 /// Thin bar along the bottom of partly watched artwork, iPlayer style.
@@ -108,6 +111,9 @@ struct DetailView: View {
                     Button("Start over") { playback.start(programme, history: history, show: show, restart: true) { state.playing = true } }
                 }
                 if playback.loading { Button("Cancel") { playback.stop() } }
+                Button(history.isWatched(programme.id) ? "Mark unwatched" : "Mark watched") {
+                    history.setWatched(programme.id, !history.isWatched(programme.id))
+                }.accessibilityLabel(history.isWatched(programme.id) ? "Mark this episode as not watched" : "Mark this episode as watched")
                 if let show {
                     ProgrammeBookmarkButton(show: show, library: library)
                 }
