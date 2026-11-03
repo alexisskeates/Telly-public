@@ -117,8 +117,8 @@ struct UHDListedBadge: View {
     }
 }
 
-/// Neutral action buttons use a clear surface; focus uses a stronger
-/// white outline, keeping all buttons the same height even when focused.
+/// Neutral action buttons use a clear surface; focus fills the button white
+/// with a dark glyph and lifts it slightly, keeping the layout height fixed.
 struct OutlinedActionButtonStyle: ButtonStyle {
     var square = false
     func makeBody(configuration: Configuration) -> some View {
@@ -132,9 +132,12 @@ private struct OutlinedActionSurface<Content: View>: View {
     @Environment(\.isFocused) private var focused
     @Environment(\.isEnabled) private var enabled
     var body: some View {
-        content.font(.system(size: 34, weight: .medium)).foregroundStyle(.white)
+        content.font(.system(size: 34, weight: .medium)).foregroundStyle(focused ? .black : .white)
             .padding(.horizontal, square ? 0 : 32).frame(width: square ? 84 : nil, height: 84)
+            .background { RoundedRectangle(cornerRadius: 22, style: .continuous).fill(focused ? .white : .clear) }
             .overlay { RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(enabled ? 1 : 0.4), lineWidth: focused ? 3 : 1.5) }
+            .scaleEffect(focused ? 1.08 : 1)
+            .shadow(color: .black.opacity(focused ? 0.5 : 0), radius: 14, y: 8)
             .opacity(enabled ? (pressed ? 0.7 : 1) : 0.5)
             .animation(.easeOut(duration: 0.15), value: focused)
             .focusEffectDisabled()
